@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import axios from "axios";
-import { Card, CardContent } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
 
-const API_KEY = import.meta.env.VITE_NEWS_API_KEY?.trim() || "";
+"use client";
+
+const API_KEY = "a43017e917114576a153d5785d62bf76";
 const COUNTRY = "br";
 const PAGE_SIZE = 9;
 
@@ -56,24 +56,37 @@ const texts = {
   },
 };
 
-function NewsCard({ article, highContrast, t, index }) {
+type Article = {
+  title?: string;
+  description?: string;
+  url?: string;
+  urlToImage?: string;
+};
+
+type NewsCardProps = {
+  article: Article;
+  highContrast: boolean;
+  t: typeof texts["pt"];
+  index: number;
+};
+
+function NewsCard({ article, highContrast, t, index }: NewsCardProps) {
   const altText = article.title || t.noTitle;
   return (
-    <Card
-      key={index}
+    <div
       className={`rounded-2xl shadow-md hover:shadow-lg transition-all ${
         highContrast ? "border border-white" : ""
       }`}
       aria-label={`Notícia ${index + 1}`}
     >
-      <CardContent className="p-4">
+      <div className="p-4">
         <img
           src={article.urlToImage || "/placeholder.jpg"}
           alt={altText}
           className="w-full h-40 object-cover rounded-md mb-3"
           onError={(e) => {
-            e.currentTarget.onerror = null;
-            e.currentTarget.src = "/placeholder.jpg";
+            (e.currentTarget as HTMLImageElement).onerror = null;
+            (e.currentTarget as HTMLImageElement).src = "/placeholder.jpg";
           }}
           loading="lazy"
         />
@@ -95,13 +108,13 @@ function NewsCard({ article, highContrast, t, index }) {
         >
           {t.readMore}
         </a>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
-function useDebounce(value, delay) {
-  const [debouncedValue, setDebouncedValue] = useState(value);
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
   useEffect(() => {
     const handler = setTimeout(() => setDebouncedValue(value), delay);
     return () => clearTimeout(handler);
@@ -110,11 +123,11 @@ function useDebounce(value, delay) {
 }
 
 export default function NewsSite() {
-  const [news, setNews] = useState([]);
+  const [news, setNews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [highContrast, setHighContrast] = useState(false);
-  const [language, setLanguage] = useState("pt");
+  const [language, setLanguage] = useState<"pt" | "en">("pt");
   const [category, setCategory] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
@@ -145,9 +158,14 @@ export default function NewsSite() {
     setError("");
     try {
       const res = await axios.get(URL);
-      if (res.data.status === "ok" && Array.isArray(res.data.articles)) {
-        setNews(res.data.articles);
-        setTotalResults(res.data.totalResults || 0);
+      const data = res.data as {
+        status?: string;
+        articles?: any[];
+        totalResults?: number;
+      };
+      if (data.status === "ok" && Array.isArray(data.articles)) {
+        setNews(data.articles);
+        setTotalResults(data.totalResults || 0);
       } else {
         setError("Resposta inesperada da API.");
         setNews([]);
@@ -174,12 +192,12 @@ export default function NewsSite() {
     setLanguage((prev) => (prev === "pt" ? "en" : "pt"));
   }
 
-  function handleCategoryChange(e) {
+  function handleCategoryChange(e: React.ChangeEvent<HTMLSelectElement>) {
     setCategory(e.target.value);
     setPage(1);
   }
 
-  function handleSearchChange(e) {
+  function handleSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
     setSearchTerm(e.target.value);
     setPage(1);
   }
@@ -189,7 +207,7 @@ export default function NewsSite() {
   }
 
   function nextPage() {
-    if (page < Math.ceil(totalResults / PAGE_SIZE)) setPage((p) => p + 1);
+    if (news.length === PAGE_SIZE) setPage((p) => p + 1);
   }
 
   return (
@@ -250,7 +268,26 @@ export default function NewsSite() {
           role="status"
           aria-busy="true"
         >
-          <Loader2 className="animate-spin w-10 h-10" aria-hidden="true" />
+          <svg
+            className="animate-spin w-10 h-10 text-blue-500"
+            fill="none"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            ></circle>
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8v8z"
+            ></path>
+          </svg>
           <span className="sr-only">{t.loading}</span>
         </div>
       ) : error ? (
@@ -302,10 +339,10 @@ export default function NewsSite() {
             </span>
             <button
               onClick={nextPage}
-              disabled={page >= Math.ceil(totalResults / PAGE_SIZE)}
+              disabled={news.length < PAGE_SIZE}
               className="px-4 py-2 rounded border border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label={t.nextPage}
-              aria-disabled={page >= Math.ceil(totalResults / PAGE_SIZE)}
+              aria-disabled={news.length < PAGE_SIZE}
             >
               {t.nextPage}
             </button>
@@ -314,4 +351,4 @@ export default function NewsSite() {
       )}
     </main>
   );
-}</button></span></button></div></section></></div></option></select></label></div></button></div></main>
+}
