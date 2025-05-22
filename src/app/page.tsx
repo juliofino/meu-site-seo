@@ -1,103 +1,317 @@
-import Image from "next/image";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
+import axios from "axios";
+import { Card, CardContent } from "@/components/ui/card";
+import { Loader2 } from "lucide-react";
 
-export default function Home() {
+const API_KEY = import.meta.env.VITE_NEWS_API_KEY?.trim() || "";
+const COUNTRY = "br";
+const PAGE_SIZE = 9;
+
+const categories = [
+  { label: "Todas", value: "" },
+  { label: "Negócios", value: "business" },
+  { label: "Entretenimento", value: "entertainment" },
+  { label: "Saúde", value: "health" },
+  { label: "Ciência", value: "science" },
+  { label: "Esportes", value: "sports" },
+  { label: "Tecnologia", value: "technology" },
+];
+
+const texts = {
+  pt: {
+    loading: "Carregando notícias...",
+    errorApiKey: "API Key ausente ou inválida. Verifique sua configuração.",
+    errorFetch: "Erro ao buscar notícias. Tente novamente mais tarde.",
+    noDescription: "Sem descrição disponível.",
+    noTitle: "Título não disponível",
+    readMore: "Ler mais",
+    newsListLabel: "Lista de notícias",
+    mainLabel: "Notícias principais",
+    highContrastOn: "Ativar alto contraste",
+    highContrastOff: "Desativar alto contraste",
+    languageSwitch: "Mudar idioma para Inglês",
+    categoryLabel: "Categoria",
+    searchPlaceholder: "Buscar notícias...",
+    prevPage: "Página anterior",
+    nextPage: "Próxima página",
+    noNewsFound: "Nenhuma notícia encontrada.",
+  },
+  en: {
+    loading: "Loading news...",
+    errorApiKey: "API key missing or invalid. Please check your setup.",
+    errorFetch: "Error fetching news. Please try again later.",
+    noDescription: "No description available.",
+    noTitle: "Title not available",
+    readMore: "Read more",
+    newsListLabel: "News list",
+    mainLabel: "Top news",
+    highContrastOn: "Enable high contrast",
+    highContrastOff: "Disable high contrast",
+    languageSwitch: "Switch language to Portuguese",
+    categoryLabel: "Category",
+    searchPlaceholder: "Search news...",
+    prevPage: "Previous page",
+    nextPage: "Next page",
+    noNewsFound: "No news found.",
+  },
+};
+
+function NewsCard({ article, highContrast, t, index }) {
+  const altText = article.title || t.noTitle;
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
+    <Card
+      key={index}
+      className={`rounded-2xl shadow-md hover:shadow-lg transition-all ${
+        highContrast ? "border border-white" : ""
+      }`}
+      aria-label={`Notícia ${index + 1}`}
+    >
+      <CardContent className="p-4">
+        <img
+          src={article.urlToImage || "/placeholder.jpg"}
+          alt={altText}
+          className="w-full h-40 object-cover rounded-md mb-3"
+          onError={(e) => {
+            e.currentTarget.onerror = null;
+            e.currentTarget.src = "/placeholder.jpg";
+          }}
+          loading="lazy"
         />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
+        <h2 className="text-lg font-bold mb-2">{altText}</h2>
+        <p
+          className="text-sm mb-2"
+          style={{ color: highContrast ? "white" : "#4B5563" }}
+        >
+          {article.description || t.noDescription}
+        </p>
         <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+          href={article.url}
           target="_blank"
           rel="noopener noreferrer"
+          className="text-blue-600 underline text-sm focus:outline focus:outline-2 focus:outline-blue-500"
+          title={t.readMore}
+          aria-label={`${t.readMore} sobre: ${altText}`}
+          style={{ color: highContrast ? "#3EA6FF" : undefined }}
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
+          {t.readMore}
         </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
+
+function useDebounce(value, delay) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debouncedValue;
+}
+
+export default function NewsSite() {
+  const [news, setNews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [highContrast, setHighContrast] = useState(false);
+  const [language, setLanguage] = useState("pt");
+  const [category, setCategory] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalResults, setTotalResults] = useState(0);
+
+  const t = texts[language];
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
+
+  const URL = useMemo(() => {
+    if (!API_KEY) return null;
+    const baseURL = `https://newsapi.org/v2/top-headlines?country=${COUNTRY}&apiKey=${API_KEY}&pageSize=${PAGE_SIZE}&page=${page}`;
+    const categoryQuery = category ? `&category=${category}` : "";
+    const searchQuery = debouncedSearchTerm
+      ? `&q=${encodeURIComponent(debouncedSearchTerm)}`
+      : "";
+    return `${baseURL}${categoryQuery}${searchQuery}`;
+  }, [category, debouncedSearchTerm, page]);
+
+  const fetchNews = useCallback(async () => {
+    if (!API_KEY) {
+      setError(t.errorApiKey);
+      setLoading(false);
+      return;
+    }
+    if (!URL) return;
+
+    setLoading(true);
+    setError("");
+    try {
+      const res = await axios.get(URL);
+      if (res.data.status === "ok" && Array.isArray(res.data.articles)) {
+        setNews(res.data.articles);
+        setTotalResults(res.data.totalResults || 0);
+      } else {
+        setError("Resposta inesperada da API.");
+        setNews([]);
+        setTotalResults(0);
+      }
+    } catch (err) {
+      setError(t.errorFetch);
+      setNews([]);
+      setTotalResults(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [URL, t.errorApiKey, t.errorFetch]);
+
+  useEffect(() => {
+    fetchNews();
+  }, [fetchNews]);
+
+  function toggleContrast() {
+    setHighContrast((prev) => !prev);
+  }
+
+  function toggleLanguage() {
+    setLanguage((prev) => (prev === "pt" ? "en" : "pt"));
+  }
+
+  function handleCategoryChange(e) {
+    setCategory(e.target.value);
+    setPage(1);
+  }
+
+  function handleSearchChange(e) {
+    setSearchTerm(e.target.value);
+    setPage(1);
+  }
+
+  function prevPage() {
+    if (page > 1) setPage((p) => p - 1);
+  }
+
+  function nextPage() {
+    if (page < Math.ceil(totalResults / PAGE_SIZE)) setPage((p) => p + 1);
+  }
+
+  return (
+    <main
+      className={`p-4 min-h-screen ${
+        highContrast ? "bg-black text-white" : "bg-white text-gray-900"
+      }`}
+      role="main"
+      aria-label={t.mainLabel}
+    >
+      <div className="flex flex-col md:flex-row justify-between mb-4 gap-4">
+        <div>
+          <button
+            onClick={toggleContrast}
+            className="focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-blue-600 rounded px-3 py-1 border border-gray-600 dark:border-white"
+            aria-pressed={highContrast}
+            aria-label={highContrast ? t.highContrastOff : t.highContrastOn}
+          >
+            {highContrast ? t.highContrastOff : t.highContrastOn}
+          </button>
+          <button
+            onClick={toggleLanguage}
+            className="ml-4 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-blue-600 rounded px-3 py-1 border border-gray-600 dark:border-white"
+            aria-label={t.languageSwitch}
+          >
+            {language === "pt" ? "English" : "Português"}
+          </button>
+        </div>
+        <div className="flex flex-col md:flex-row items-center gap-4">
+          <label htmlFor="category" className="font-semibold mr-2">
+            {t.categoryLabel}:
+          </label>
+          <select
+            id="category"
+            value={category}
+            onChange={handleCategoryChange}
+            className="rounded border border-gray-300 px-2 py-1"
+          >
+            {categories.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+          <input
+            type="search"
+            placeholder={t.searchPlaceholder}
+            value={searchTerm}
+            onChange={handleSearchChange}
+            className="rounded border border-gray-300 px-2 py-1"
+            aria-label={t.searchPlaceholder}
+          />
+        </div>
+      </div>
+      {loading ? (
+        <div
+          className="flex justify-center items-center h-40"
+          role="status"
+          aria-busy="true"
+        >
+          <Loader2 className="animate-spin w-10 h-10" aria-hidden="true" />
+          <span className="sr-only">{t.loading}</span>
+        </div>
+      ) : error ? (
+        <div
+          className="text-red-500 text-center font-semibold py-10"
+          role="alert"
+          tabIndex={0}
+        >
+          {error}
+        </div>
+      ) : news.length === 0 ? (
+        <div
+          className="text-center py-10 font-semibold"
+          tabIndex={0}
+          role="alert"
+          aria-live="polite"
+        >
+          {t.noNewsFound}
+        </div>
+      ) : (
+        <>
+          <section
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+            aria-live="polite"
+            aria-label={t.newsListLabel}
+          >
+            {news.map((article, index) => (
+              <NewsCard
+                key={article.url || index}
+                article={article}
+                highContrast={highContrast}
+                t={t}
+                index={index}
+              />
+            ))}
+          </section>
+          <div className="flex justify-center items-center mt-6 gap-4">
+            <button
+              onClick={prevPage}
+              disabled={page === 1}
+              className="px-4 py-2 rounded border border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label={t.prevPage}
+              aria-disabled={page === 1}
+            >
+              {t.prevPage}
+            </button>
+            <span className="font-semibold" aria-live="polite" aria-atomic="true">
+              {page}
+            </span>
+            <button
+              onClick={nextPage}
+              disabled={page >= Math.ceil(totalResults / PAGE_SIZE)}
+              className="px-4 py-2 rounded border border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label={t.nextPage}
+              aria-disabled={page >= Math.ceil(totalResults / PAGE_SIZE)}
+            >
+              {t.nextPage}
+            </button>
+          </div>
+        </>
+      )}
+    </main>
+  );
+}</button></span></button></div></section></></div></option></select></label></div></button></div></main>
